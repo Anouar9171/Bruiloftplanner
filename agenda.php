@@ -6,6 +6,8 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 include 'dbconnect.php';
+include 'nav.php';
+include 'footer.php';
 $user_id = $_SESSION['user_id'];
 
 // Functie om de dagen van de komende maand te krijgen
@@ -26,13 +28,24 @@ function getDaysInMonth() {
 
 $daysInMonth = getDaysInMonth();
 
-// Haal alle evenementen voor de komende maand op
-$sql = "SELECT * FROM events WHERE user_id='$user_id' AND event_date >= CURDATE() AND event_date < DATE_ADD(CURDATE(), INTERVAL 1 MONTH)";
-$result = $conn->query($sql);
+// Haal alle evenementen voor de komende maand op, inclusief gedeelde evenementen
+$sql = "SELECT e.* 
+        FROM events e 
+        LEFT JOIN shared_agendas s ON e.id = s.event_id 
+        WHERE (e.user_id = ? OR s.user_id = ?) 
+        AND event_date >= CURDATE() AND event_date < DATE_ADD(CURDATE(), INTERVAL 1 MONTH)";
+$stmt = $conn->prepare($sql);
+$stmt->bind_param("ii", $user_id, $user_id);
+$stmt->execute();
+$result = $stmt->get_result();
 $events = [];
 while ($row = $result->fetch_assoc()) {
-    $events[$row['event_date']][] = $row['event_description'];
+    $event_date = (new DateTime($row['event_date']))->format('Y-m-d');
+    $events[$event_date][] = $row['event_description'];
 }
+
+$stmt->close();
+$conn->close();
 ?>
 
 <!DOCTYPE html>
@@ -40,23 +53,59 @@ while ($row = $result->fetch_assoc()) {
 <head>
     <meta charset="UTF-8">
     <title>Agenda</title>
-    <link rel="stylesheet" href="styles.css">
-    <a href="todo.php">To Do List</a>
     <style>
-        /* Grid CSS */
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 0;
+        }
+        .container {
+            width: 80%;
+            margin: auto;
+            overflow: hidden;
+        }
+        header {
+            background: #333;
+            color: #fff;
+            padding-top: 30px;
+            min-height: 70px;
+            border-bottom: #77aaff 3px solid;
+        }
+        header #branding {
+            float: left;
+        }
+        header #branding h1 {
+            margin: 0;
+        }
+        nav {
+            float: right;
+            margin-top: 10px;
+        }
+        nav ul {
+            padding: 0;
+            list-style: none;
+        }
+        nav ul li {
+            display: inline;
+            margin-right: 20px;
+        }
+        nav ul li a {
+            color: #fff;
+            text-decoration: none;
+            font-size: 16px;
+        }
         .grid-container {
             display: grid;
             grid-template-columns: repeat(7, 1fr);
             gap: 10px;
         }
-
         .grid-item {
             background-color: #fff;
             padding: 10px;
             border: 1px solid #ddd;
             box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
         }
-
         .modal {
             display: none;
             position: fixed;
@@ -70,7 +119,6 @@ while ($row = $result->fetch_assoc()) {
             background-color: rgba(0,0,0,0.4);
             padding-top: 60px;
         }
-
         .modal-content {
             background-color: #fefefe;
             margin: 5% auto;
@@ -78,14 +126,12 @@ while ($row = $result->fetch_assoc()) {
             border: 1px solid #888;
             width: 80%;
         }
-
         .close {
             color: #aaa;
             float: right;
             font-size: 28px;
             font-weight: bold;
         }
-
         .close:hover,
         .close:focus {
             color: black;

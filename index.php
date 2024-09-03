@@ -33,7 +33,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     <div class="container">
         <header>
             <div id="branding">
-                <h1>Agenda App</h1>
+                <h1>Huwelijk Planner</h1>
             </div>
             <nav>
                 <ul>
